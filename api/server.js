@@ -1,6 +1,10 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const session = require("express-session");
+const KnexSessionStore = require("connect-session-knex")(session);
+const usersRouter = require("./users/users-router");
+const authRouter = require("./auth/auth-router");
 
 /**
   Do what needs to be done to support sessions with the `express-session` package!
@@ -17,15 +21,41 @@ const cors = require("cors");
 
 const server = express();
 
+server.use(
+  session({
+    name: "brandons-api",
+    secret: "my little secret",
+    cookie: {
+      maxAge: 1000 * 10 * 1000,
+      secure: false, // change for production
+      httpOnly: false, //if true, JS cannot read the contents of cookie
+      resave: false,
+      saveUninitialized: false,
+      store: KnexSessionStore({
+        knex: require("../data/db-config"),
+        table: "sessions",
+        sidfieldname: "sid",
+        createtable: true, //if table doesnt exist, it will make one automatically
+        clearInterval: 1000 * 60 * 60, //time it checks for old sessions and removes them
+      }),
+    },
+  })
+);
+
 server.use(helmet());
 server.use(express.json());
 server.use(cors());
 
+//servers
+server.use("/api/auth", authRouter);
+server.use("/api/users", usersRouter);
+
 server.get("/", (req, res) => {
-  res.json({ api: "up" });
+  res.json({ api: "is Running!!" });
 });
 
-server.use((err, req, res, next) => { // eslint-disable-line
+server.use((err, req, res, next) => {
+  // eslint-disable-line
   res.status(500).json({
     message: err.message,
     stack: err.stack,
